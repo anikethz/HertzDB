@@ -41,12 +41,35 @@ func serializeToFile[T interface{}](name string, item T) (FileIOResult, error) {
 
 func AppendToFile[T interface{}](name string, item T) (FileIOResult, error) {
 
-	return serializeWithOffset(name, item, 0, io.SeekEnd)
+	return serializeWithOffset(name, item, 2, io.SeekEnd)
 }
 
+// @deprecated
 func setBlankBytes(filename string, offset int64, length int64) (FileIOResult, error) {
 	blankBytes := make([]byte, length)
 	return serializeWithOffset(filename, blankBytes, offset, io.SeekStart)
+}
+
+func SetBlankBytes(filename string, offset int64, length int64) (int, error) {
+	// Open the file for reading and writing
+	file, err := os.OpenFile(filename, os.O_RDWR, 0644)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	blankData := make([]byte, length)
+
+	if _, err := file.Seek(offset, 0); err != nil {
+		return 0, fmt.Errorf("failed to seek to offset: %v", err)
+	}
+
+	bytes, err := file.Write(blankData)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write blank bytes: %v", err)
+	}
+
+	return bytes, nil
 }
 
 func updateMetaLength(filename string, offset int64, length int64) (FileIOResult, error) {
@@ -59,7 +82,7 @@ func updateMetaLength(filename string, offset int64, length int64) (FileIOResult
 	//Update old space with blank bytes
 	// blankBytes := make([]byte, metadata.Length.CtoI())
 	// serializeWithOffset(filename, blankBytes, metadata.Start.CtoI(), io.SeekStart)
-	setBlankBytes(filename, metadata.Start.CtoI(), metadata.Length.CtoI())
+	SetBlankBytes(filename, metadata.Start.CtoI(), metadata.Length.CtoI())
 
 	metadata.Start = ItoC(offset)
 	metadata.Length = ItoC(length)
@@ -67,13 +90,15 @@ func updateMetaLength(filename string, offset int64, length int64) (FileIOResult
 
 }
 
-func UpdateIndexDocumentMetadata(filename string, indexDocument IndexDocument) (FileIOResult, error) {
+func UpdateIndexDocumentMetadata(filename string, indexDocument *IndexDocument) (FileIOResult, error) {
 
 	ioResult, err := AppendToFile(filename, indexDocument)
 	if err != nil {
 		return FileIOResult{}, fmt.Errorf("failed to write delimiter: %w", err)
 	}
-	_, err = updateMetaLength(filename, ioResult.offset, ioResult.length)
+	x, err := updateMetaLength(filename, ioResult.offset, ioResult.length)
+
+	fmt.Println("{", x.offset, ",", x.length, "}")
 
 	if err != nil {
 		return FileIOResult{}, fmt.Errorf("failed to update metadata document: %w", err)

@@ -14,6 +14,10 @@ const META_START_OFFSET int64 = META_LENGTH + SEEK_DELI
 func deserialize[T any](filename string, offset int64, count int64, whence int) (T, error) {
 	var result T
 
+	if offset == 0 && count == 0 {
+		return result, nil
+	}
+
 	file, err := os.Open(filename)
 	if err != nil {
 		return result, fmt.Errorf("failed to open file: %w", err)

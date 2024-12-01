@@ -1,6 +1,7 @@
 package index
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/anikethz/HertzDB/src/core/utils"
 )
+
+const BUFFER_SIZE = 1000
 
 type IndexMetadata struct {
 	Start  ConstantInteger
@@ -17,8 +20,9 @@ type IndexMetadata struct {
 // Metadata starts at SeekStart + 9
 // Map of field name
 type IndexDocument struct {
-	Name     string
-	Metadata map[string]IndexMetadata
+	Name          string
+	Json_Filename string
+	Metadata      map[string]IndexMetadata
 }
 
 func purgeAndCreateNewFile(filename string) error {
@@ -31,10 +35,10 @@ func purgeAndCreateNewFile(filename string) error {
 	return nil
 }
 
-func NewIndexDocument(name string) (*IndexDocument, error) {
+func NewIndexDocument(name string, json_fileName string) (*IndexDocument, error) {
 
 	meta := make(map[string]IndexMetadata)
-	indexDocument := IndexDocument{Name: name, Metadata: meta}
+	indexDocument := IndexDocument{Name: name, Json_Filename: json_fileName, Metadata: meta}
 	purgeAndCreateNewFile(name)
 	ioResult, err := serializeWithOffset(name, indexDocument, META_START_OFFSET, io.SeekStart)
 	if err != nil {
@@ -71,7 +75,7 @@ func (document *IndexDocument) updateFieldMetadata(fieldMetadata FieldIndexMetad
 		if err != nil {
 			return FileIOResult{}, fmt.Errorf("failed to index %v", err)
 		} else {
-			setBlankBytes(fieldMetadata.Filename, meta.Start.CtoI(), meta.Length.CtoI())
+			SetBlankBytes(fieldMetadata.Filename, meta.Start.CtoI(), meta.Length.CtoI())
 		}
 
 	}
@@ -84,6 +88,10 @@ func (document *IndexDocument) updateFieldMetadata(fieldMetadata FieldIndexMetad
 // Convert to JSON util
 // New Index
 func (fieldIndex *FieldIndex) ingestDocument(document Document) {
+	if _, ok := document.Doc[fieldIndex.Field]; !ok || document.Doc[fieldIndex.Field] == nil {
+		// fmt.Printf("key not found: %v", document.Doc)
+		return
+	}
 	tokens := utils.LowCaseTokenizer(document.Doc[fieldIndex.Field].(string))
 
 	for i := range tokens {
@@ -95,7 +103,7 @@ func (fieldIndex *FieldIndex) ingestDocument(document Document) {
 	}
 }
 
-func (indexDocument *IndexDocument) IndexTextFields(field string, documents *Documents) {
+func (indexDocument *IndexDocument) IndexTextFields(field string, documents *Documents) FieldIndexMetadata {
 
 	//Get fieldMetadata
 	fieldMetadata, err := indexDocument.GetFieldIndexMetadata(field)
@@ -121,6 +129,62 @@ func (indexDocument *IndexDocument) IndexTextFields(field string, documents *Doc
 	if err != nil {
 		fmt.Println(err)
 	}
+	// fmt.Println(indexDocument)
+	UpdateIndexDocumentMetadata(fieldMetadata.Filename, indexDocument)
 
-	UpdateIndexDocumentMetadata(fieldMetadata.Filename, *indexDocument)
+	return fieldMetadata
+}
+
+func (indexDocument *IndexDocument) ParseEntireFile(fields []string) {
+	file, _ := os.Open(indexDocument.Json_Filename)
+	//Read Document
+	stringSlice := make([]string, 0, 1000)
+	buffer := make([]byte, BUFFER_SIZE)
+
+	counter := 0
+	documentByteSize := BUFFER_SIZE * 10
+	documentBytes := make([]byte, 0, documentByteSize)
+	startOffset, endOffset := int64(0), int64(0)
+	documents := NewDocuments()
+
+	for {
+		bytesRead, err := file.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				fmt.Printf("Something failed while reading the file: %v\n", err)
+			}
+			break
+		}
+		for i := 0; i < bytesRead; i++ {
+			endOffset++
+			documentBytes = append(documentBytes, buffer[i])
+
+			// Check for the end of a JSON document (assuming newline as delimiter)
+			if buffer[i] == '\n' {
+				// Deserialize the JSON document
+				var jsonDoc map[string]interface{}
+				err := json.Unmarshal(documentBytes, &jsonDoc)
+				if err != nil {
+					fmt.Printf("Error unmarshaling JSON: %v\nInput JSON: %s\n", err, string(documentBytes))
+				} else {
+					_ = append(stringSlice, string(documentBytes))
+					documents.ProcessNewDocumentAndIndex(string(documentBytes), startOffset, (endOffset - startOffset))
+				}
+				// Reset documentBytes for the next document
+				documentBytes = make([]byte, 0)
+				counter++
+				startOffset = endOffset // Update startOffset to the next byte after the newline
+				if counter%1000 == 0 {
+					for _, field := range fields {
+						indexDocument.IndexTextFields(field, documents)
+					}
+					documents = NewDocuments()
+				}
+			}
+		}
+	}
+	for _, field := range fields {
+		indexDocument.IndexTextFields(field, documents)
+	}
+	fmt.Printf("Number of documents: %v\n", counter)
 }

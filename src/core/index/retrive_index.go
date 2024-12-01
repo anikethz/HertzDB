@@ -9,8 +9,10 @@ func SearchTerm(filename string, field string, term string) ([][2]int64, error) 
 
 	indexDocument, _ := DeserializeIndexDocumentMeta(filename)
 	fieldIndexMetadata, _ := indexDocument.GetFieldIndexMetadata(field)
-
-	rIndex, _ := fieldIndexMetadata.GetRuneIndex(rune(term[0]))
+	rIndex, err := fieldIndexMetadata.GetRuneIndex(rune(term[0]))
+	if err != nil {
+		fmt.Println(err)
+	}
 	return rIndex[term], nil
 
 }
