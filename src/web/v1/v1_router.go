@@ -9,7 +9,9 @@ func GetV1Router() *chi.Mux {
 
 	v1Router := chi.NewRouter()
 
-	v1Router.Get("/{index}/search", v1Search.SearchHandler)
+	apiConfig := v1Search.ApiConfig{}
+
+	v1Router.Get("/{index}/search", apiConfig.Handler(apiConfig.SearchHandler))
 
 	return v1Router
 

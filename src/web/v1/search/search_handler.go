@@ -8,12 +8,9 @@ import (
 	"github.com/anikethz/HertzDB/src/core/index"
 	"github.com/anikethz/HertzDB/src/core/utils"
 	hertzTypes "github.com/anikethz/HertzDB/src/web/types"
-	"github.com/go-chi/chi/v5"
 )
 
-func SearchHandler(w http.ResponseWriter, r *http.Request) {
-
-	index_string := chi.URLParam(r, "index")
+func (apiConfig *ApiConfig) SearchHandler(w http.ResponseWriter, r *http.Request) {
 
 	body := hertzTypes.SearchRequest{}
 	decoder := json.NewDecoder(r.Body)
@@ -24,15 +21,13 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := index_string + ".hz"
-	json_filename := index_string + ".json"
 	var res [][2]int64
 	for _, v := range body.Field.Values {
-		_res, _ := index.SearchTerm(filename, body.Field.Name, v)
+		_res, _ := index.SearchTerm(apiConfig.Filename, body.Field.Name, v)
 		res = append(res, _res...)
 	}
 
-	docs, _ := index.GetDocument(json_filename, res)
+	docs, _ := index.GetDocument(apiConfig.Json_Filename, res)
 
 	response := ""
 
