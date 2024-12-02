@@ -1,5 +1,4 @@
 *.hz
 /test/dataset
-main.go
 HertzDB
 *.json
