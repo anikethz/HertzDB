@@ -1,4 +1,4 @@
-package v1Search
+package web
 
 import (
 	"net/http"

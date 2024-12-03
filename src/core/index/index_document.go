@@ -7,14 +7,15 @@ import (
 	"io"
 	"os"
 
+	fileio "github.com/anikethz/HertzDB/src/core/file_io"
 	"github.com/anikethz/HertzDB/src/core/utils"
 )
 
 const BUFFER_SIZE = 1000
 
 type IndexMetadata struct {
-	Start  ConstantInteger
-	Length ConstantInteger
+	Start  utils.ConstantInteger
+	Length utils.ConstantInteger
 }
 
 // Metadata starts at SeekStart + 9
@@ -40,13 +41,13 @@ func NewIndexDocument(name string, json_fileName string) (*IndexDocument, error)
 	meta := make(map[string]IndexMetadata)
 	indexDocument := IndexDocument{Name: name, Json_Filename: json_fileName, Metadata: meta}
 	purgeAndCreateNewFile(name)
-	ioResult, err := serializeWithOffset(name, indexDocument, META_START_OFFSET, io.SeekStart)
+	ioResult, err := fileio.SerializeWithOffset(name, indexDocument, fileio.META_START_OFFSET, io.SeekStart)
 	if err != nil {
 		return nil, errors.New("failed creating index")
 	}
-	indexMetadata := IndexMetadata{Start: ItoC(ioResult.offset), Length: ItoC(ioResult.length)}
+	indexMetadata := IndexMetadata{Start: utils.ItoC(ioResult.Offset), Length: utils.ItoC(ioResult.Length)}
 
-	ioResult, err = serializeToFile(name, indexMetadata)
+	ioResult, err = fileio.SerializeToFile(name, indexMetadata)
 	if err != nil {
 		return nil, errors.New("failed creating index")
 	}
@@ -54,33 +55,87 @@ func NewIndexDocument(name string, json_fileName string) (*IndexDocument, error)
 	return &indexDocument, nil
 }
 
+func deserializeMetaLength(filename string) (IndexMetadata, error) {
+
+	meta, err := fileio.Deserialize[IndexMetadata](filename, 0, fileio.META_LENGTH, io.SeekStart)
+	return meta, err
+
+}
+
+func DeserializeIndexDocumentMeta(filename string) (IndexDocument, error) {
+
+	indexMetadata, err := deserializeMetaLength(filename)
+	if err != nil {
+		return IndexDocument{}, err
+	}
+	indexDocument, err := fileio.Deserialize[IndexDocument](filename, indexMetadata.Start.CtoI(), indexMetadata.Length.CtoI(), io.SeekStart)
+	return indexDocument, err
+
+}
+
+func updateMetaLength(filename string, offset int64, length int64) (fileio.FileIOResult, error) {
+
+	metadata, err := deserializeMetaLength(filename)
+	if err != nil {
+		return fileio.FileIOResult{}, fmt.Errorf("failed to get meta length: %w", err)
+	}
+
+	//Update old space with blank bytes
+	// blankBytes := make([]byte, metadata.Length.CtoI())
+	// serializeWithOffset(filename, blankBytes, metadata.Start.CtoI(), io.SeekStart)
+	fileio.SetBlankBytes(filename, metadata.Start.CtoI(), metadata.Length.CtoI())
+
+	metadata.Start = utils.ItoC(offset)
+	metadata.Length = utils.ItoC(length)
+	return fileio.SerializeWithOffset(filename, metadata, 0, io.SeekStart)
+
+}
+
+func UpdateIndexDocumentMetadata(filename string, indexDocument *IndexDocument) (fileio.FileIOResult, error) {
+
+	ioResult, err := fileio.AppendToFile(filename, indexDocument)
+	if err != nil {
+		return fileio.FileIOResult{}, fmt.Errorf("failed to write delimiter: %w", err)
+	}
+	x, err := updateMetaLength(filename, ioResult.Offset, ioResult.Length)
+
+	fmt.Println("{", x.Offset, ",", x.Length, "}")
+
+	if err != nil {
+		return fileio.FileIOResult{}, fmt.Errorf("failed to update metadata document: %w", err)
+	}
+
+	return ioResult, nil
+}
+
+
 // Get Field Index
 func (document IndexDocument) GetFieldIndexMetadata(field string) (FieldIndexMetadata, error) {
 	if metadata, ok := document.Metadata[field]; ok {
-		return DeserializeFromFile[FieldIndexMetadata](document.Name, metadata.Start.CtoI(), metadata.Length.CtoI())
+		return fileio.DeserializeFromFile[FieldIndexMetadata](document.Name, metadata.Start.CtoI(), metadata.Length.CtoI())
 	}
 	return FieldIndexMetadata{}, fmt.Errorf("field %s not found in document", field)
 }
 
-func (document *IndexDocument) updateFieldMetadata(fieldMetadata FieldIndexMetadata) (FileIOResult, error) {
-	var ioResult FileIOResult
+func (document *IndexDocument) updateFieldMetadata(fieldMetadata FieldIndexMetadata) (fileio.FileIOResult, error) {
+	var ioResult fileio.FileIOResult
 	var err error
 	//Check if Not new
 	meta := document.Metadata[fieldMetadata.Field]
 	if meta.Start.CtoI() == 0 && meta.Length.CtoI() == 0 {
-		ioResult, err = AppendToFile(fieldMetadata.Filename, fieldMetadata)
+		ioResult, err = fileio.AppendToFile(fieldMetadata.Filename, fieldMetadata)
 	} else {
-		ioResult, err = AppendToFile[FieldIndexMetadata](fieldMetadata.Filename, fieldMetadata)
+		ioResult, err = fileio.AppendToFile[FieldIndexMetadata](fieldMetadata.Filename, fieldMetadata)
 
 		if err != nil {
-			return FileIOResult{}, fmt.Errorf("failed to index %v", err)
+			return fileio.FileIOResult{}, fmt.Errorf("failed to index %v", err)
 		} else {
-			SetBlankBytes(fieldMetadata.Filename, meta.Start.CtoI(), meta.Length.CtoI())
+			fileio.SetBlankBytes(fieldMetadata.Filename, meta.Start.CtoI(), meta.Length.CtoI())
 		}
 
 	}
 
-	document.Metadata[fieldMetadata.Field] = IndexMetadata{Start: ItoC(ioResult.offset), Length: ItoC(ioResult.length)}
+	document.Metadata[fieldMetadata.Field] = IndexMetadata{Start: utils.ItoC(ioResult.Offset), Length: utils.ItoC(ioResult.Length)}
 	return ioResult, err
 
 }

@@ -1,4 +1,4 @@
-package index
+package fileio
 
 import (
 	"encoding/gob"
@@ -11,7 +11,7 @@ const META_LENGTH int64 = 116
 const SEEK_DELI int64 = 5
 const META_START_OFFSET int64 = META_LENGTH + SEEK_DELI
 
-func deserialize[T any](filename string, offset int64, count int64, whence int) (T, error) {
+func Deserialize[T any](filename string, offset int64, count int64, whence int) (T, error) {
 	var result T
 
 	if offset == 0 && count == 0 {
@@ -43,26 +43,8 @@ func deserialize[T any](filename string, offset int64, count int64, whence int) 
 	return result, nil
 }
 
-func deserializeMetaLength(filename string) (IndexMetadata, error) {
-
-	meta, err := deserialize[IndexMetadata](filename, 0, META_LENGTH, io.SeekStart)
-	return meta, err
-
-}
-
-func DeserializeIndexDocumentMeta(filename string) (IndexDocument, error) {
-
-	indexMetadata, err := deserializeMetaLength(filename)
-	if err != nil {
-		return IndexDocument{}, err
-	}
-	indexDocument, err := deserialize[IndexDocument](filename, indexMetadata.Start.CtoI(), indexMetadata.Length.CtoI(), io.SeekStart)
-	return indexDocument, err
-
-}
-
 func DeserializeFromFile[T any](filename string, offset int64, count int64) (T, error) {
-	return deserialize[T](filename, offset, count, io.SeekStart)
+	return Deserialize[T](filename, offset, count, io.SeekStart)
 }
 
 func DeserializeRawString(filename string, offset int64, count int64, whence int) (string, error) {

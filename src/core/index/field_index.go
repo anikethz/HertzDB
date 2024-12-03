@@ -2,6 +2,9 @@ package index
 
 import (
 	"fmt"
+
+	fileio "github.com/anikethz/HertzDB/src/core/file_io"
+	"github.com/anikethz/HertzDB/src/core/utils"
 )
 
 // Array of [startOffset, length]
@@ -21,7 +24,7 @@ func NewFieldIndexMetadata(filename string, field string, indexType string) *Fie
 
 	newIndex := make(map[rune]IndexMetadata)
 	for ch := 'a'; ch <= 'z'; ch++ {
-		newIndex[ch] = IndexMetadata{Start: ItoC(0), Length: ItoC(0)}
+		newIndex[ch] = IndexMetadata{Start: utils.ItoC(0), Length: utils.ItoC(0)}
 	}
 	return &FieldIndexMetadata{Filename: filename, Index: newIndex, Field: field, IndexType: indexType}
 }
@@ -64,45 +67,45 @@ func (fieldIndex *FieldIndex) UpdateFieldIndex(fieldMetadata *FieldIndexMetadata
 // Get Rune Index
 func (fieldMetadata FieldIndexMetadata) GetRuneIndex(ch rune) (map[string][][2]int64, error) {
 
-	return DeserializeFromFile[map[string][][2]int64](fieldMetadata.Filename, fieldMetadata.Index[ch].Start.CtoI(), fieldMetadata.Index[ch].Length.CtoI())
+	return fileio.DeserializeFromFile[map[string][][2]int64](fieldMetadata.Filename, fieldMetadata.Index[ch].Start.CtoI(), fieldMetadata.Index[ch].Length.CtoI())
 }
 
 // Save Rune Index
-func (fieldMetadata *FieldIndexMetadata) updateRuneIndex(ch rune, index map[string][][2]int64) (FileIOResult, error) {
+func (fieldMetadata *FieldIndexMetadata) updateRuneIndex(ch rune, index map[string][][2]int64) (fileio.FileIOResult, error) {
 
-	var ioResult FileIOResult
+	var ioResult fileio.FileIOResult
 	var err error
 	//Check if Not new
 	meta := fieldMetadata.Index[ch]
 	if meta.Start.CtoI() == 0 && meta.Length.CtoI() == 0 {
-		ioResult, err = AppendToFile(fieldMetadata.Filename, index)
+		ioResult, err = fileio.AppendToFile(fieldMetadata.Filename, index)
 		if err != nil {
-			return FileIOResult{}, fmt.Errorf("failed to append rune '%c' index for field %v: %v", ch, fieldMetadata.Field, err)
+			return fileio.FileIOResult{}, fmt.Errorf("failed to append rune '%c' index for field %v: %v", ch, fieldMetadata.Field, err)
 		}
 	} else {
 		rIndex, err := fieldMetadata.GetRuneIndex(ch)
 		if err != nil {
 			fmt.Println(meta)
-			return FileIOResult{}, fmt.Errorf("failed to retrieve rune '%c' index for field %v: %v", ch, fieldMetadata.Field, err)
+			return fileio.FileIOResult{}, fmt.Errorf("failed to retrieve rune '%c' index for field %v: %v", ch, fieldMetadata.Field, err)
 		}
 
 		for k := range index {
 			rIndex[k] = append(rIndex[k], index[k]...)
 		}
 
-		ioResult, err = AppendToFile[map[string][][2]int64](fieldMetadata.Filename, rIndex)
+		ioResult, err = fileio.AppendToFile[map[string][][2]int64](fieldMetadata.Filename, rIndex)
 
 		if err != nil {
-			return FileIOResult{}, fmt.Errorf("failed to index %v", err)
+			return fileio.FileIOResult{}, fmt.Errorf("failed to index %v", err)
 		}
-		y, err := SetBlankBytes(fieldMetadata.Filename, meta.Start.CtoI(), meta.Length.CtoI())
+		y, err := fileio.SetBlankBytes(fieldMetadata.Filename, meta.Start.CtoI(), meta.Length.CtoI())
 		if err != nil || y != int(meta.Length.CtoI()) {
 			fmt.Printf("Failed to save_++_ rune %c: %v\n", 'D', err)
 		}
 
 	}
 
-	fieldMetadata.Index[ch] = IndexMetadata{Start: ItoC(ioResult.offset), Length: ItoC(ioResult.length)}
+	fieldMetadata.Index[ch] = IndexMetadata{Start: utils.ItoC(ioResult.Offset), Length: utils.ItoC(ioResult.Length)}
 
 	return ioResult, err
 }

@@ -1,4 +1,4 @@
-package hertzTypes
+package web
 
 type Field struct {
 	Name   string   `json:"name"`

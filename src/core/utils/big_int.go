@@ -1,4 +1,4 @@
-package index
+package utils
 
 type ConstantInteger [20]uint8
 

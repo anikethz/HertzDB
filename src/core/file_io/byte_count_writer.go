@@ -1,4 +1,4 @@
-package index
+package fileio
 
 import "io"
 
