@@ -3,6 +3,8 @@ package index
 import (
 	"fmt"
 	"io"
+
+	fileio "github.com/anikethz/HertzDB/src/core/file_io"
 )
 
 func SearchTerm(filename string, field string, term string) ([][2]int64, error) {
@@ -23,7 +25,7 @@ func GetDocument(filename string, locs [][2]int64) ([]string, error) {
 
 	for _, _loc := range locs {
 
-		doc, err := DeserializeRawString(filename, _loc[0], _loc[1], io.SeekStart)
+		doc, err := fileio.DeserializeRawString(filename, _loc[0], _loc[1], io.SeekStart)
 		if err != nil {
 			fmt.Println(err)
 			return nil, err

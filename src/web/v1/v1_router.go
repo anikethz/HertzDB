@@ -1,4 +1,4 @@
-package v1Router
+package web
 
 import (
 	v1Search "github.com/anikethz/HertzDB/src/web/v1/search"
