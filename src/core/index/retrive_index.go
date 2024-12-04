@@ -9,6 +9,7 @@ import (
 
 func SearchTerm(filename string, field string, term string) ([][2]int64, error) {
 
+	filename = "./uploads/"+filename
 	indexDocument, _ := DeserializeIndexDocumentMeta(filename)
 	fieldIndexMetadata, _ := indexDocument.GetFieldIndexMetadata(field)
 	rIndex, err := fieldIndexMetadata.GetRuneIndex(rune(term[0]))
@@ -20,6 +21,7 @@ func SearchTerm(filename string, field string, term string) ([][2]int64, error) 
 }
 
 func GetDocument(filename string, locs [][2]int64) ([]string, error) {
+	filename = "./uploads/"+filename
 
 	documents := make([]string, 0)
 

@@ -38,6 +38,9 @@ func purgeAndCreateNewFile(filename string) error {
 
 func NewIndexDocument(name string, json_fileName string) (*IndexDocument, error) {
 
+	name = "./uploads/"+name
+	json_fileName = "./uploads/"+json_fileName
+
 	meta := make(map[string]IndexMetadata)
 	indexDocument := IndexDocument{Name: name, Json_Filename: json_fileName, Metadata: meta}
 	purgeAndCreateNewFile(name)
