@@ -24,7 +24,10 @@ Provides core REST APIs for essential features of HertzDB.
 ```
 **Endpoints**
 
-**`:/v1/{index}/search`** : With body `SearchRequest`, return arrays of the matched documents
+**`POST :/v1/{index}/ingest`** : Take form-data with key file for ingesting file through multi-part, and index the same for the provided `index`.
+
+**`GET :/v1/{index}/search`** : With body `SearchRequest`, return arrays of the matched documents.
+
 ## Core
 
 Current functionalities include parsing and indexing json files for token based searching. This is done efficiently via batch processing the input file, 1000 documents at a time, and the indexed metadata is saved in a index file with extension `.hz` 
