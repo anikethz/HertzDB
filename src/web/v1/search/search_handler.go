@@ -1,4 +1,4 @@
-package web
+package search
 
 import (
 	"encoding/json"
@@ -7,14 +7,15 @@ import (
 
 	"github.com/anikethz/HertzDB/src/core/index"
 	"github.com/anikethz/HertzDB/src/core/utils"
+	"github.com/anikethz/HertzDB/src/web/types"
 	hertzTypes "github.com/anikethz/HertzDB/src/web/types"
 )
 
-func (apiConfig *ApiConfig) SearchHandler(w http.ResponseWriter, r *http.Request) {
+func SearchHandler(w http.ResponseWriter, r *http.Request, apiConfig *types.ApiConfig) {
 
 	body := hertzTypes.SearchRequest{}
 	decoder := json.NewDecoder(r.Body)
-
+	
 	err := decoder.Decode(&body)
 	if err != nil {
 		utils.ResponseWithError(w, 400, fmt.Sprintf("Error parsing JSON: %s", err))
